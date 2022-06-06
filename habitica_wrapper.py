@@ -52,7 +52,10 @@ class Habitica:
     def get_challenges(self):
         endpoint = "https://habitica.com/api/v3/challenges/user"
         challenges = self.s.get(endpoint, params={'page': 0, 'member': True}).json()
-        return challenges
+        if challenges['success']:
+            return challenges
+        else:
+            return None
 
     def insert_habit(self, item):
         """
