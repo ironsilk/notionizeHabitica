@@ -1,3 +1,5 @@
+import json
+
 import requests.exceptions
 
 from utils import error_wrap
@@ -8,7 +10,8 @@ class Notion:
         self.s = requests.Session()
         self.s.headers.update({
             "Authorization": f"Bearer {token}",
-            "Notion-Version": "2022-02-22"
+            "Notion-Version": "2022-02-22",
+            "Content-Type": "application/json",
 
         })
 
@@ -47,9 +50,18 @@ class Notion:
                                          )
         return results['results']
 
+    def update_page(self, page_id, changes):
+        endpoint = f"https://api.notion.com/v1/pages/{page_id}"
+        r = self.s.patch(endpoint, data=json.dumps(changes))
+        return r
+
+    def update_database(self, database_id, changes):
+        endpoint = f"https://api.notion.com/v1/databases/{database_id}"
+        r = self.s.patch(endpoint, data=json.dumps(changes))
+        return r
+
 
 if __name__ == '__main__':
-    from pprint import pprint
     from dotenv import load_dotenv
     import os
     load_dotenv()
@@ -57,5 +69,3 @@ if __name__ == '__main__':
     NOTION_TOKEN = os.getenv("NOTION_TOKEN")
 
     n = Notion(NOTION_TOKEN)
-    n.get_db('db973d91ef46443baca7ad58f6a41ed4')
-    pprint(n.get_all_db_items('db973d91ef46443baca7ad58f6a41ed4'))

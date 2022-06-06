@@ -16,6 +16,17 @@ class Habitica:
     def get(self, e):
         return self.s.get(e)
 
+    @error_wrap
+    def post(self, e, data=None, json=None):
+        if data:
+            return self.s.post(e, data=data)
+        if json:
+            return self.s.post(e, json=json)
+
+    @error_wrap
+    def put(self, e, data=None):
+        return self.s.put(e, data=data)
+
     def get_tasks(self):
         """
         Returns user's tasks
@@ -38,9 +49,43 @@ class Habitica:
         else:
             return False
 
+    def get_challenges(self):
+        endpoint = "https://habitica.com/api/v3/challenges/user"
+        challenges = self.s.get(endpoint, params={'page': 0, 'member': True}).json()
+        return challenges
+
+    def insert_habit(self, item):
+        """
+        Insert a habit, input must be in the form of:
+        {
+            'alias': '9c9750e6-d36b-403b-b92f-aa76bab62c9c',
+            'attribute': 'Strength',
+            'down': False,
+            'text': 'Example Habit',
+            'type': 'habit',
+            'up': True
+        }
+        :param item:
+        :return:
+        """
+        endpoint = 'https://habitica.com/api/v3/tasks/user'
+        return self.post(endpoint, json=item)
+
+    def insert_challenge_habit(self, challenge_id, item):
+        """
+        Insert a habit belonging to a challenge
+        :param item:
+        :return:
+        """
+        endpoint = f'https://habitica.com/api/v3/tasks/challenge/{challenge_id}'
+        return self.post(endpoint, json=item)
+
+    def update_habit(self, item_id, item):
+        endpoint = f"https://habitica.com/api/v3/tasks/{item_id}"
+        return self.put(endpoint, data=item)
+
 
 if __name__ == '__main__':
-    from pprint import pprint
     from dotenv import load_dotenv
     import os
     load_dotenv()
@@ -49,5 +94,4 @@ if __name__ == '__main__':
     HABITICA_USER_ID = os.getenv("HABITICA_USER_ID")
 
     n = Habitica(HABITICA_USER_ID, HABITICA_TOKEN)
-    # pprint(n.get_tasks())
-    pprint(n.get_task('a9ee3993-774a-43de-8b95-46aa490bde22'))
+
