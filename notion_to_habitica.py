@@ -100,17 +100,21 @@ class Sync():
         :return:
         """
         self.logger.info("Syncing habitica challenges...")
-        challenge_names = [x['shortName'] for x in self.habitica.get_challenges()['data']]
-        payload = {
-            "properties": {
-                "ChallengeName": {
-                    "select": {
-                        'options': [{'name': x} for x in challenge_names]
-                    }
-                },
-            }}
-        self.notion.update_database(NOTION_DATABASE_ID, payload)
-        self.logger.info("Done!")
+        challenge_names = self.habitica.get_challenges()
+        if challenge_names:
+            challenge_names = [x['shortName'] for x in challenge_names['data']]
+            payload = {
+                "properties": {
+                    "ChallengeName": {
+                        "select": {
+                            'options': [{'name': x} for x in challenge_names]
+                        }
+                    },
+                }}
+            self.notion.update_database(NOTION_DATABASE_ID, payload)
+            self.logger.info("Done!")
+        else:
+            self.logger.info("No challenges found.")
 
     def sync_tasks(self):
         self.logger.info("Syncing tasks...")

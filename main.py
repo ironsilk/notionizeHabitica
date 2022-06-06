@@ -18,5 +18,6 @@ if __name__ == '__main__':
             service.sync_all()
         except Exception as e:
             service.logger.error(f"Oups: {e}")
+            raise e
         service.logger.info("Sleeping 1 minute")
         sleep(60)
