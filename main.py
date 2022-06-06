@@ -1,7 +1,10 @@
-from notion_to_habitica import Sync
 import os
-from dotenv import load_dotenv
+import traceback
 from time import sleep
+
+from dotenv import load_dotenv
+
+from notion_to_habitica import Sync
 
 load_dotenv()
 
@@ -17,7 +20,6 @@ if __name__ == '__main__':
         try:
             service.sync_all()
         except Exception as e:
-            service.logger.error(f"Oups: {e}")
-            raise e
+            service.logger.error(f"Oups: {traceback.format_exc()}")
         service.logger.info("Sleeping 1 minute")
         sleep(60)
