@@ -1,3 +1,5 @@
+import traceback
+
 from notion_wrapper import Notion
 from habitica_wrapper import Habitica
 import os
@@ -66,7 +68,8 @@ class Sync():
             'type': type,
             'text': notion_item['properties']['Name']['title'][0]['plain_text'],
             'frequency': notion_item['properties']['Frequency']['select']['name'].lower(),
-            'attribute': notion_item['properties']['Attribute']['select']['name'][:3].lower(),
+            'attribute': notion_item['properties']['Attribute']['select']['name'][:3].lower() if
+            notion_item['properties']['Attribute']['select'] else None,
             'everyX': notion_item['properties']['RepeatEvery']['number'],
             'startDate': notion_item['properties']['StartDate']['date']['start'] if
             notion_item['properties']['StartDate']['date'] else None,
@@ -123,58 +126,63 @@ class Sync():
         notion_items = [x for x in notion_items if not self.item_is_incomplete(x)]
         # Update each item in Habitica if necessary
         for notion_item in notion_items:
-            item_type = TYPE_MAPPING[notion_item['properties']['TaskType']['select']['name']]
-            # if notion_item['properties']['TaskType']['select']['name'] == 'Habit':
             try:
-                habitica_item = self.habitica.get_task(
-                    notion_item['properties']['habitica_id']['rich_text'][0]['plain_text'])
-            except IndexError:
-                habitica_item = None
-            if habitica_item:
-                # Update Habitica item
-                if d_util.parse(notion_item['last_edited_time']) > d_util.parse(habitica_item['data']['updatedAt']):
-                    self.logger.info(f"Updating notion item "
-                                     f"|{notion_item['properties']['Name']['title'][0]['plain_text']}| "
-                                     )
-                    item = self.make_habitica_item(notion_item, item_type)
-                    self.habitica.update_habit(
-                        notion_item['properties']['habitica_id']['rich_text'][0]['plain_text'],
-                        item
-                    )
+                item_type = TYPE_MAPPING[notion_item['properties']['TaskType']['select']['name']]
+                # if notion_item['properties']['TaskType']['select']['name'] == 'Habit':
+                try:
+                    habitica_item = self.habitica.get_task(
+                        notion_item['properties']['habitica_id']['rich_text'][0]['plain_text'])
+                except IndexError:
+                    habitica_item = None
+                if habitica_item:
+                    # Update Habitica item
+                    if d_util.parse(notion_item['last_edited_time']) > d_util.parse(habitica_item['data']['updatedAt']):
+                        self.logger.info(f"Updating notion item "
+                                         f"|{notion_item['properties']['Name']['title'][0]['plain_text']}| "
+                                         )
+                        item = self.make_habitica_item(notion_item, item_type)
+                        self.habitica.update_habit(
+                            notion_item['properties']['habitica_id']['rich_text'][0]['plain_text'],
+                            item
+                        )
+                    else:
+                        # Nothing's changed, pass
+                        self.logger.info(f"Skipping notion item "
+                                         f"|{notion_item['properties']['Name']['title'][0]['plain_text']}| "
+                                         f":  no changes")
                 else:
-                    # Nothing's changed, pass
-                    self.logger.info(f"Skipping notion item "
-                                     f"|{notion_item['properties']['Name']['title'][0]['plain_text']}| "
-                                     f":  no changes")
-            else:
-                # New item, insert into Habitica.
-                if notion_item['properties']['ChallengeName']['select']:
-                    # Get challenges to fetch the ChallengeID
-                    challenges = self.habitica.get_challenges()
-                    idd = [x for x in challenges['data'] if
-                           x['shortName'] == notion_item['properties']['ChallengeName']['select']['name']][0]['id']
-                    result = self.habitica.insert_challenge_habit(idd, self.make_habitica_item(notion_item, item_type))
-                else:
-                    result = self.habitica.insert_habit(self.make_habitica_item(notion_item, item_type))
-                # And update item in Notion
-                if result['success']:
-                    payload = {
-                        "properties": {
-                            "habitica_id": {
-                                "rich_text": [
-                                    {
-                                        "text": {
-                                            "content": result['data']['_id']
+                    # New item, insert into Habitica.
+                    if notion_item['properties']['ChallengeName']['select']:
+                        # Get challenges to fetch the ChallengeID
+                        challenges = self.habitica.get_challenges()
+                        idd = [x for x in challenges['data'] if
+                               x['shortName'] == notion_item['properties']['ChallengeName']['select']['name']][0]['id']
+                        result = self.habitica.insert_challenge_habit(idd, self.make_habitica_item(notion_item, item_type))
+                    else:
+                        result = self.habitica.insert_habit(self.make_habitica_item(notion_item, item_type))
+                    # And update item in Notion
+                    if result['success']:
+                        payload = {
+                            "properties": {
+                                "habitica_id": {
+                                    "rich_text": [
+                                        {
+                                            "text": {
+                                                "content": result['data']['_id']
+                                            }
                                         }
-                                    }
-                                ]
-                            },
-                        }}
+                                    ]
+                                },
+                            }}
 
-                    self.notion.update_page(notion_item['id'], payload)
-                else:
-                    self.logger.error(f"Had trouble inserting habit into Habitica. Please investigate: "
-                                      f"{result.json()}")
+                        self.notion.update_page(notion_item['id'], payload)
+                    else:
+                        self.logger.error(f"Had trouble inserting habit into Habitica. Please investigate: "
+                                          f"{result.json()}")
+            except Exception:
+                self.logger.error(f"Failed to sync notion item "
+                                  f"{notion_item['properties']['Name']['title'][0]['plain_text']} with error:"
+                                  f" {traceback.format_exc()}")
 
         self.logger.info("Done!")
         return notion_items
